@@ -1,0 +1,42 @@
+name: Build IPA
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+
+      - name: Install ldid
+        run: brew install ldid 2>/dev/null || brew install ProcursusTeam/ldid/ldid || true
+
+      - name: Build
+        run: |
+          chmod +x ipabuild.sh
+          ./ipabuild.sh
+
+      - name: Verify
+        run: |
+          ls -la *.ipa
+          unzip -l Erosion.ipa | grep -E "lproj|Info.plist" || true
+          /usr/libexec/PlistBuddy -c "Print :CFBundleLocalizations" \
+            "$(unzip -Z1 Erosion.ipa | grep 'Info.plist' | head -1)" 2>/dev/null || true
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Erosion-zh-ipa
+          path: "*.ipa"
+          retention-days: 30
